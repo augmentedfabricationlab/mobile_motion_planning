@@ -108,58 +108,49 @@ def ik_with_tool(target: Plane):
 
 
 
-def generate_and_save_ik_solutions(
-    flange_json='__251117_163017_flange_frames.json',
-    base_json='__251117_163017_base_frames.json',
-    output_json='ik_solutions.json',
-):
-    import json
-    from pathlib import Path
+# load targets from C:\Users\david\Documents\GitHub\slab_net_zero\data\auto_generated\export\_251117_163017_flange_frames.json
+import json
+from pathlib import Path
+SCRIPT_DIR = Path(__file__).resolve().parent
+JSON_PATH = (SCRIPT_DIR / '../../../../data/auto_generated/export/__251117_163017_flange_frames.json').resolve()
+with JSON_PATH.open('r', encoding='utf-8') as f:
+    flange_planes_data = json.load(f)
+flange_planes = []
+for i, plane_data in enumerate(flange_planes_data):
+    plane = Plane(
+        origin=tuple(plane_data['origin']),
+        xaxis=tuple(plane_data['x_axis']),
+        yaxis=tuple(plane_data['y_axis']),
+    )
+    flange_planes.append(plane)
+print(f"Loaded {len(flange_planes_data)} flange planes from {JSON_PATH}")
 
-    script_dir = Path(__file__).resolve().parent
-    export_dir = (script_dir / '../../../../data/auto_generated/export').resolve()
+# load base planes from C:\Users\david\Documents\GitHub\slab_net_zero\data\auto_generated\export\_251117_163017_base_frames.json
+BASE_JSON_PATH = (SCRIPT_DIR / '../../../../data/auto_generated/export/__251117_163017_base_frames.json').resolve()
+with BASE_JSON_PATH.open('r', encoding='utf-8') as f:
+    base_planes_data = json.load(f)
+base_planes = []
+for i, plane_data in enumerate(base_planes_data):
+    plane = Plane(
+        origin=tuple(plane_data['origin']),
+        xaxis=tuple(plane_data['x_axis']),
+        yaxis=tuple(plane_data['y_axis']),
+    )
+    base_planes.append(plane)
+print(f"Loaded {len(base_planes_data)} base planes from {BASE_JSON_PATH}")
+ik_solutions_list = []
 
-    json_path = export_dir / flange_json
-    with json_path.open('r', encoding='utf-8') as f:
-        flange_planes_data = json.load(f)
-    flange_planes = []
-    for plane_data in flange_planes_data:
-        plane = Plane(
-            origin=tuple(plane_data['origin']),
-            xaxis=tuple(plane_data['x_axis']),
-            yaxis=tuple(plane_data['y_axis']),
-        )
-        flange_planes.append(plane)
-    print(f"Loaded {len(flange_planes_data)} flange planes from {json_path}")
+for flange_plane, base_plane in zip(flange_planes, base_planes):
+    ik_solutions = ik_no_tool_with_base_change(flange_plane, base_plane)
+    ik_solutions_list.append(ik_solutions)
 
-    base_json_path = export_dir / base_json
-    with base_json_path.open('r', encoding='utf-8') as f:
-        base_planes_data = json.load(f)
-    base_planes = []
-    for plane_data in base_planes_data:
-        plane = Plane(
-            origin=tuple(plane_data['origin']),
-            xaxis=tuple(plane_data['x_axis']),
-            yaxis=tuple(plane_data['y_axis']),
-        )
-        base_planes.append(plane)
-    print(f"Loaded {len(base_planes_data)} base planes from {base_json_path}")
+print(f"Computed IK solutions for {len(ik_solutions_list)} flange planes.")
 
-    ik_solutions_list = []
-    for flange_plane, base_plane in zip(flange_planes, base_planes):
-        ik_solutions = ik_no_tool_with_base_change(flange_plane, base_plane)
-        ik_solutions_list.append(ik_solutions)
-
-    print(f"Computed IK solutions for {len(ik_solutions_list)} flange planes.")
-
-    output_path = export_dir / output_json
-    print(f"Saving IK solutions to {output_path}")
-    with output_path.open('w', encoding='utf-8') as f:
-        json.dump([[[angle for angle in sol] for sol in ik_solutions] for ik_solutions in ik_solutions_list], f, indent=4)
-
-
-if __name__ == '__main__':
-    generate_and_save_ik_solutions()
+#save to file
+output_path = (SCRIPT_DIR / '../../../../data/auto_generated/export/ik_solutions.json').resolve()
+print(f"Saving IK solutions to {output_path}")
+with output_path.open('w', encoding='utf-8') as f:
+    json.dump([[[angle for angle in sol] for sol in ik_solutions] for ik_solutions in ik_solutions_list], f, indent=4)
 
 # target_plane = Plane(
 #     origin=[
