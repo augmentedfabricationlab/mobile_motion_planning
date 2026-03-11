@@ -1,4 +1,5 @@
 """Compute flange pose and print inverse kinematics solutions without robot connection."""
+
 # for example usage see testing file or notebook
 from .geometry import Plane
 from .ik import inverse_kinematics
@@ -45,29 +46,31 @@ def print_transformation(transformation, rotation=None, translation=None):
     print("\nHomogeneous Transformation Matrix T:")
     print_matrix(transformation)
 
+
 def ik_with_tool_and_base_change(target: Plane, new_base: Plane):
-    T=from_plane_to_plane(new_base,Plane((0,0,0),(1,0,0),(0,1,0)))
-    target_in_new_base=apply_T_to_plane(T,target)
+    T = from_plane_to_plane(new_base, Plane((0, 0, 0), (1, 0, 0), (0, 1, 0)))
+    target_in_new_base = apply_T_to_plane(T, target)
     return ik_with_tool(target_in_new_base)
 
+
 def ik_no_tool_with_base_change(target: Plane, new_base: Plane):
-    T=from_plane_to_plane(new_base,Plane((0,0,0),(1,0,0),(0,1,0)))
-    target_in_new_base=apply_T_to_plane(T,target)
+    T = from_plane_to_plane(new_base, Plane((0, 0, 0), (1, 0, 0), (0, 1, 0)))
+    target_in_new_base = apply_T_to_plane(T, target)
     # print_plane(target_in_new_base, "Target in New Base")
     return inverse_kinematics(target_in_new_base)
 
 
 def find_matching_ik_solution(current_pose, ik_solutions):
     """Find the IK solution closest to the current pose.
-    
+
     Args:
         current_pose: List of joint angles (in radians) representing the current robot configuration
         ik_solutions: List of possible IK solutions, each being a list of joint angles
-        
+
     Returns:
         The IK solution (list of joint angles) that is closest to current_pose,
         or None if ik_solutions is empty
-        
+
     Note:
         The function uses the minimum length between current_pose and each solution
         to handle potential length mismatches gracefully. For UR robots, this is
@@ -75,30 +78,33 @@ def find_matching_ik_solution(current_pose, ik_solutions):
     """
     if not ik_solutions:
         return None
-    
+
     # Calculate distance for each solution using sum of squared differences
-    min_distance = float('inf')
+    min_distance = float("inf")
     best_solution = None
-    
+
     for solution in ik_solutions:
         # Calculate sum of squared differences between current pose and this solution
         # Use min length to handle potential mismatches gracefully
         # Note: If lengths differ, only the overlapping joints are compared.
         # This is designed for UR robots where all solutions have 6 joints.
         min_len = min(len(current_pose), len(solution))
-        distance = sum((current_pose[j] - solution[j])**2 for j in range(min_len))
-        
+        distance = sum((current_pose[j] - solution[j]) ** 2 for j in range(min_len))
+
         if distance < min_distance:
             min_distance = distance
             best_solution = solution
-    
+
     return best_solution
+
 
 def ik_with_tool(target: Plane):
     """Compute flange pose and return inverse kinematics solutions without robot connection."""
 
     # tcp_in_world = Plane((0.00302, -0.29571, 0.40445), (0.0366, 0, 0), (0, 0.0051, 0.0141)) # tool 7 abele split 90deg adapter straight inlet
-    tcp_in_world = Plane((0.000,-0.29786,0.361), (0.0151,0,0), (0,-0.014,0.0056)) # tool 8 abele split 90deg adapter straight inlet
+    tcp_in_world = Plane(
+        (0.000, -0.29786, 0.361), (0.0151, 0, 0), (0, -0.014, 0.0056)
+    )  # tool 8 abele split 90deg adapter straight inlet
 
     t = from_plane_to_plane(tcp_in_world, target)
     target_flange = apply_T_to_plane(t)
@@ -106,51 +112,67 @@ def ik_with_tool(target: Plane):
     return solutions
 
 
-
-
 # load targets from C:\Users\david\Documents\GitHub\slab_net_zero\data\auto_generated\export\_251117_163017_flange_frames.json
 import json
 from pathlib import Path
-SCRIPT_DIR = Path(__file__).resolve().parent
-JSON_PATH = (SCRIPT_DIR / '../../../../data/auto_generated/export/__251117_163017_flange_frames.json').resolve()
-with JSON_PATH.open('r', encoding='utf-8') as f:
-    flange_planes_data = json.load(f)
-flange_planes = []
-for i, plane_data in enumerate(flange_planes_data):
-    plane = Plane(
-        origin=tuple(plane_data['origin']),
-        xaxis=tuple(plane_data['x_axis']),
-        yaxis=tuple(plane_data['y_axis']),
-    )
-    flange_planes.append(plane)
-print(f"Loaded {len(flange_planes_data)} flange planes from {JSON_PATH}")
 
-# load base planes from C:\Users\david\Documents\GitHub\slab_net_zero\data\auto_generated\export\_251117_163017_base_frames.json
-BASE_JSON_PATH = (SCRIPT_DIR / '../../../../data/auto_generated/export/__251117_163017_base_frames.json').resolve()
-with BASE_JSON_PATH.open('r', encoding='utf-8') as f:
-    base_planes_data = json.load(f)
-base_planes = []
-for i, plane_data in enumerate(base_planes_data):
-    plane = Plane(
-        origin=tuple(plane_data['origin']),
-        xaxis=tuple(plane_data['x_axis']),
-        yaxis=tuple(plane_data['y_axis']),
-    )
-    base_planes.append(plane)
-print(f"Loaded {len(base_planes_data)} base planes from {BASE_JSON_PATH}")
-ik_solutions_list = []
+def _load_planes_from_json(json_path: Path):
+    with json_path.open("r", encoding="utf-8") as f:
+        planes_data = json.load(f)
 
-for flange_plane, base_plane in zip(flange_planes, base_planes):
-    ik_solutions = ik_no_tool_with_base_change(flange_plane, base_plane)
-    ik_solutions_list.append(ik_solutions)
+    planes = []
+    for plane_data in planes_data:
+        plane = Plane(
+            origin=tuple(plane_data["origin"]),
+            xaxis=tuple(plane_data["x_axis"]),
+            yaxis=tuple(plane_data["y_axis"]),
+        )
+        planes.append(plane)
 
-print(f"Computed IK solutions for {len(ik_solutions_list)} flange planes.")
+    return planes_data, planes
 
-#save to file
-output_path = (SCRIPT_DIR / '../../../../data/auto_generated/export/ik_solutions.json').resolve()
-print(f"Saving IK solutions to {output_path}")
-with output_path.open('w', encoding='utf-8') as f:
-    json.dump([[[angle for angle in sol] for sol in ik_solutions] for ik_solutions in ik_solutions_list], f, indent=4)
+
+def main():
+    SCRIPT_DIR = Path(__file__).resolve().parent
+    JSON_PATH = (
+        SCRIPT_DIR
+        / "../../../../data/auto_generated/export/__251117_163017_flange_frames.json"
+    ).resolve()
+    BASE_JSON_PATH = (
+        SCRIPT_DIR
+        / "../../../../data/auto_generated/export/__251117_163017_base_frames.json"
+    ).resolve()
+
+    flange_planes_data, flange_planes = _load_planes_from_json(JSON_PATH)
+    print(f"Loaded {len(flange_planes_data)} flange planes from {JSON_PATH}")
+
+    base_planes_data, base_planes = _load_planes_from_json(BASE_JSON_PATH)
+    print(f"Loaded {len(base_planes_data)} base planes from {BASE_JSON_PATH}")
+
+    ik_solutions_list = []
+    for flange_plane, base_plane in zip(flange_planes, base_planes):
+        ik_solutions = ik_no_tool_with_base_change(flange_plane, base_plane)
+        ik_solutions_list.append(ik_solutions)
+
+    print(f"Computed IK solutions for {len(ik_solutions_list)} flange planes.")
+
+    output_path = (
+        SCRIPT_DIR / "../../../../data/auto_generated/export/ik_solutions.json"
+    ).resolve()
+    print(f"Saving IK solutions to {output_path}")
+    with output_path.open("w", encoding="utf-8") as f:
+        json.dump(
+            [
+                [[angle for angle in sol] for sol in ik_solutions]
+                for ik_solutions in ik_solutions_list
+            ],
+            f,
+            indent=4,
+        )
+
+
+if __name__ == "__main__":
+    main()
 
 # target_plane = Plane(
 #     origin=[
@@ -190,7 +212,6 @@ with output_path.open('w', encoding='utf-8') as f:
 # print("\nInverse Kinematics Solutions:")
 # for sol in ik_solutions:
 #     print(f"[{', '.join(f'{angle:.6f}' for angle in sol)}]")
-          
 
 
 # ik_solutions = inverse_kinematics(target_plane)
