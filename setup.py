@@ -3,6 +3,7 @@
 from __future__ import absolute_import, print_function
 
 import io
+import os
 import re
 from glob import glob
 from os.path import abspath, basename, dirname, join, splitext
@@ -30,6 +31,16 @@ def read(*names, **kwargs):
 about = {}
 exec(read('src', 'mobile_motion_planning', '__version__.py'), about)
 
+# Try to read README and CHANGELOG, but don't fail if they don't exist
+try:
+    long_description = '%s\n%s' % (
+        re.compile('^.. start-badges.*^.. end-badges', re.M |
+                   re.S).sub('', read('README.rst')),
+        re.sub(':[a-z]+:`~?(.*?)`', r'``\1``', read('CHANGELOG.rst'))
+    )
+except (FileNotFoundError, IOError):
+    long_description = about.get('__description__', '')
+
 setup(
     name=about['__title__'],
     version=about['__version__'],
@@ -38,16 +49,17 @@ setup(
     author=about['__author__'],
     author_email=about['__author_email__'],
     url=about['__url__'],
-    long_description='%s\n%s' % (
-        re.compile('^.. start-badges.*^.. end-badges', re.M |
-                   re.S).sub('', read('README.rst')),
-        re.sub(':[a-z]+:`~?(.*?)`', r'``\1``', read('CHANGELOG.rst'))
-    ),
+    long_description=long_description,
     packages=find_packages('src'),
     package_dir={'': 'src'},
     py_modules=[splitext(basename(path))[0] for path in glob('src/*.py')],
     include_package_data=True,
     zip_safe=False,
+    data_files=[
+        ('share/ament_index/resource_index/packages',
+            ['resource/mobile_motion_planning']),
+        ('share/mobile_motion_planning', ['package.xml']),
+    ],
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',
@@ -69,5 +81,9 @@ setup(
     keywords=keywords_list,
     install_requires=requirements,
     extras_require={},
-    entry_points={},
+    entry_points={
+        'console_scripts': [
+            'odom_reader_node = mobile_motion_planning.odom_reader_node:main',
+        ],
+    },
 )
