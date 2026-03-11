@@ -135,9 +135,9 @@ if __name__ == "__main__":
         list_of_targets=target_planes,
     )
 
-    print(f"Computed {result['num_nodes_computed']} nodes")
-    print(f"Path length: {result['path_length']}")
-    print(f"Number of configurations in path: {len(result['configurations'])}")
-    if result["configurations"]:
-        print("\nFirst configuration:")
-        print(result["configurations"][0])
+    # print(f"Computed {result['num_nodes_computed']} nodes")
+    # print(f"Path length: {result['path_length']}")
+    # print(f"Number of configurations in path: {len(result['configurations'])}")
+    # if result["configurations"]:
+    #     print("\nFirst configuration:")
+    #     print(result["configurations"][0])
