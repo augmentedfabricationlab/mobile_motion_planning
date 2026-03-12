@@ -16,6 +16,8 @@
 
   <depend>rclpy</depend>
   <depend>nav_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
   <depend>python3-compas</depend>
 
   <test_depend>ament_pytest</test_depend>
