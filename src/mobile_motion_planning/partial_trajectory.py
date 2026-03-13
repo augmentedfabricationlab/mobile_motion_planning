@@ -5,8 +5,7 @@ for only a portion of the total trajectory, useful for lookahead planning and
 incremental trajectory computation.
 """
 
-import sys
-from pathlib import Path
+import math
 
 # # Add the src directory to the path for imports
 # module_path = Path(__file__).resolve().parent.parent.parent
@@ -22,8 +21,120 @@ from slab_net_zero.motion_planning.shortest_path_graph_based.graph_based_optimum
 )
 
 
+def _rotate_vector_around_axis(vector, axis, angle_rad):
+    """Rotate a vector around an axis using Rodrigues' rotation formula."""
+    ux, uy, uz = axis
+    vx, vy, vz = vector
+    c = math.cos(angle_rad)
+    s = math.sin(angle_rad)
+
+    dot = ux * vx + uy * vy + uz * vz
+    cross_x = uy * vz - uz * vy
+    cross_y = uz * vx - ux * vz
+    cross_z = ux * vy - uy * vx
+
+    return (
+        vx * c + cross_x * s + ux * dot * (1.0 - c),
+        vy * c + cross_y * s + uy * dot * (1.0 - c),
+        vz * c + cross_z * s + uz * dot * (1.0 - c),
+    )
+
+
+def _rotation_offsets_degrees(
+    rotation_mode,
+    rotation_angle_deg,
+    rotation_steps,
+    angle_cw_deg,
+    angle_ccw_deg,
+):
+    mode = str(rotation_mode).strip().lower()
+    if mode in ('false', 'none', 'off', '0'):
+        return [0.0]
+
+    if mode == 'n_steps':
+        steps = int(rotation_steps)
+        if steps < 1:
+            raise ValueError('rotation_steps must be >= 1 for rotation_mode=n_steps')
+        step_deg = 360.0 / float(steps)
+        return [i * step_deg for i in range(steps)]
+
+    if mode == 'step_angle':
+        step = float(rotation_angle_deg)
+        if step <= 0:
+            raise ValueError(
+                'rotation_angle_deg must be > 0 for rotation_mode=step_angle'
+            )
+        start = -float(angle_ccw_deg)
+        stop = float(angle_cw_deg)
+        offsets = []
+        current = start
+        # Add a small epsilon to include the upper bound despite float stepping.
+        while current <= stop + 1e-9:
+            offsets.append(current)
+            current += step
+        return offsets or [0.0]
+
+    raise ValueError(
+        f"Unsupported rotation_mode '{rotation_mode}'. "
+        "Use one of: False, n_steps, step_angle"
+    )
+
+
+def _expand_plane_rotations(
+    target_plane,
+    rotation_mode,
+    rotation_angle_deg,
+    rotation_steps,
+    angle_cw_deg,
+    angle_ccw_deg,
+):
+    offsets_deg = _rotation_offsets_degrees(
+        rotation_mode=rotation_mode,
+        rotation_angle_deg=rotation_angle_deg,
+        rotation_steps=rotation_steps,
+        angle_cw_deg=angle_cw_deg,
+        angle_ccw_deg=angle_ccw_deg,
+    )
+
+    axis = tuple(float(v) for v in target_plane.zaxis)
+    xaxis = tuple(float(v) for v in target_plane.xaxis)
+    yaxis = tuple(float(v) for v in target_plane.yaxis)
+    origin = tuple(float(v) for v in target_plane.origin)
+
+    rotated = []
+    for offset_deg in offsets_deg:
+        angle_rad = math.radians(offset_deg)
+        new_x = _rotate_vector_around_axis(xaxis, axis, angle_rad)
+        new_y = _rotate_vector_around_axis(yaxis, axis, angle_rad)
+        rotated.append(Plane(origin, new_x, new_y))
+    return rotated
+
+
+def _apply_slab_net_zero_collision_check(ik_solutions_list, collision_data_path=None):
+    from slab_net_zero.collision_checking.pybullet.collision_checking_pybullet import (
+        CollisionCheck,
+    )
+
+    checker = CollisionCheck.from_solutions(ik_solutions_list)
+    if collision_data_path:
+        checker.data_path = str(collision_data_path)
+    checker.collision_check(write_output=False)
+    return checker.collision_free_solutions
+
+
 def calculate_partial_trajectory(
-    current_pose, list_of_targets, number_of_nodes_to_calculate=10, base_planes=None
+    current_pose,
+    list_of_targets,
+    number_of_nodes_to_calculate=10,
+    base_planes=None,
+    rotation_mode='False',
+    rotation_angle_deg=5,
+    rotation_steps=35,
+    angle_cw_deg=0,
+    angle_ccw_deg=0,
+    enable_collision_check=False,
+    collision_data_path=None,
+    path_builder_iterations=10,
 ):
     num_nodes = min(number_of_nodes_to_calculate, len(list_of_targets))
 
@@ -44,9 +155,23 @@ def calculate_partial_trajectory(
 
     # Compute IK solutions for each target
     ik_solutions_list = []
+    rotation_candidates_per_node = []
     for target_plane, base_plane in zip(targets_subset, base_planes_subset):
-        ik_solutions = ik_no_tool_with_base_change(target_plane, base_plane)
-        #we are using the flange frames that where precomputed from target planes
+        rotated_target_planes = _expand_plane_rotations(
+            target_plane,
+            rotation_mode=rotation_mode,
+            rotation_angle_deg=rotation_angle_deg,
+            rotation_steps=rotation_steps,
+            angle_cw_deg=angle_cw_deg,
+            angle_ccw_deg=angle_ccw_deg,
+        )
+        rotation_candidates_per_node.append(len(rotated_target_planes))
+
+        ik_solutions = []
+        for rotated_target_plane in rotated_target_planes:
+            ik_solutions.extend(
+                ik_no_tool_with_base_change(rotated_target_plane, base_plane)
+            )
 
         # Handle case where no IK solutions exist for a target
         if not ik_solutions or len(ik_solutions) == 0:
@@ -55,6 +180,15 @@ def calculate_partial_trajectory(
         else:
             ik_solutions_list.append(ik_solutions)
 
+    if enable_collision_check:
+        try:
+            ik_solutions_list = _apply_slab_net_zero_collision_check(
+                ik_solutions_list,
+                collision_data_path=collision_data_path,
+            )
+        except Exception as e:
+            print(f'Collision culling failed: {e}')
+
     # Check if we have any valid solutions
     if all(len(sols) == 0 for sols in ik_solutions_list):
         return {
@@ -62,6 +196,7 @@ def calculate_partial_trajectory(
             "path_length": float("inf"),
             "num_nodes_computed": num_nodes,
             "ik_solutions_per_node": ik_solutions_list,
+            "rotation_candidates_per_node": rotation_candidates_per_node,
         }
 
     ik_solutions_with_start = [[current_pose]] + ik_solutions_list
@@ -74,7 +209,9 @@ def calculate_partial_trajectory(
         )
 
         # Find shortest path (using limited iterations for speed)
-        shortest_path, path_length = path_builder.find_shortest_path(iterations=10)
+        shortest_path, path_length = path_builder.find_shortest_path(
+            iterations=path_builder_iterations
+        )
 
         if shortest_path is None:
             return {
@@ -82,6 +219,7 @@ def calculate_partial_trajectory(
                 "path_length": float("inf"),
                 "num_nodes_computed": num_nodes,
                 "ik_solutions_per_node": ik_solutions_list,
+                "rotation_candidates_per_node": rotation_candidates_per_node,
             }
 
         # Extract configurations from the path
@@ -99,6 +237,7 @@ def calculate_partial_trajectory(
             "path_length": path_length,
             "num_nodes_computed": num_nodes,
             "ik_solutions_per_node": ik_solutions_list,
+            "rotation_candidates_per_node": rotation_candidates_per_node,
         }
 
     except Exception as e:
@@ -109,9 +248,37 @@ def calculate_partial_trajectory(
             "path_length": float("inf"),
             "num_nodes_computed": num_nodes,
             "ik_solutions_per_node": ik_solutions_list,
+            "rotation_candidates_per_node": rotation_candidates_per_node,
             "error": str(e),
         }
 
+
+# def select_buffer_tail_pose(
+#     *,
+#     exec_index,
+#     replan_start_index,
+#     replanned_configurations,
+#     buffer_size,
+# ):
+#     """Return the global index/configuration that should replace the buffer tail.
+
+#     Example with ``buffer_size=2``:
+#     - UR reports ``exec_index=0``
+#     - Replanning starts at global target index 1 (targets 1 and 2)
+#     - Target 1 is already on robot, so only replanned target 2 is sent
+#     """
+#     if buffer_size < 1:
+#         raise ValueError("buffer_size must be >= 1")
+
+#     if not replanned_configurations:
+#         return None
+
+#     tail_global_index = exec_index + buffer_size
+#     tail_offset = tail_global_index - replan_start_index
+#     if tail_offset < 0 or tail_offset >= len(replanned_configurations):
+#         return None
+
+#     return tail_global_index, replanned_configurations[tail_offset]
 
 
 if __name__ == "__main__":
@@ -135,3 +302,10 @@ if __name__ == "__main__":
         current_pose=current_pose,
         list_of_targets=target_planes,
     )
+
+    # print(f"Computed {result['num_nodes_computed']} nodes")
+    # print(f"Path length: {result['path_length']}")
+    # print(f"Number of configurations in path: {len(result['configurations'])}")
+    # if result["configurations"]:
+    #     print("\nFirst configuration:")
+    #     print(result["configurations"][0])
