@@ -113,33 +113,6 @@ def calculate_partial_trajectory(
         }
 
 
-# def select_buffer_tail_pose(
-#     *,
-#     exec_index,
-#     replan_start_index,
-#     replanned_configurations,
-#     buffer_size,
-# ):
-#     """Return the global index/configuration that should replace the buffer tail.
-
-#     Example with ``buffer_size=2``:
-#     - UR reports ``exec_index=0``
-#     - Replanning starts at global target index 1 (targets 1 and 2)
-#     - Target 1 is already on robot, so only replanned target 2 is sent
-#     """
-#     if buffer_size < 1:
-#         raise ValueError("buffer_size must be >= 1")
-
-#     if not replanned_configurations:
-#         return None
-
-#     tail_global_index = exec_index + buffer_size
-#     tail_offset = tail_global_index - replan_start_index
-#     if tail_offset < 0 or tail_offset >= len(replanned_configurations):
-#         return None
-
-#     return tail_global_index, replanned_configurations[tail_offset]
-
 
 if __name__ == "__main__":
     # Example usage
@@ -162,10 +135,3 @@ if __name__ == "__main__":
         current_pose=current_pose,
         list_of_targets=target_planes,
     )
-
-    # print(f"Computed {result['num_nodes_computed']} nodes")
-    # print(f"Path length: {result['path_length']}")
-    # print(f"Number of configurations in path: {len(result['configurations'])}")
-    # if result["configurations"]:
-    #     print("\nFirst configuration:")
-    #     print(result["configurations"][0])
