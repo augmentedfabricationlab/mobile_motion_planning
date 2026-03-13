@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """
-ROS2 node that subscribes to odometry and fabrication progress (exec_index) and processes position data at 10Hz.
+ROS 2 node that:
+- Subscribes to base odometry, executed trajectory index (`exec_index`), and arm joint states.
+- Loads target/base planes from JSON.
+- Seeds initial UR buffer targets.
+- Replans a short lookahead trajectory on execution progress updates.
+- Publishes the replanned buffer-tail joint target as `Float64MultiArray` so the ur_pose_streamer_live can use it.
 """
 import json
 import os
