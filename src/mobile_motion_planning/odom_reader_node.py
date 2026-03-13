@@ -69,6 +69,14 @@ class OdomReaderNode(Node):
         self.declare_parameter('base_planes_json', '/home/robot/robot_ws/src/print_while_driving_packages/mobile_motion_planning/data/example_data/260311_Segment_4/260311_150455_base_frames.json')
         self.declare_parameter('lookahead_nodes', 2)
         self.declare_parameter('robot_buffer_size', 2)
+        self.declare_parameter('rotation_mode', 'False')
+        self.declare_parameter('rotation_angle_deg', 5.0)
+        self.declare_parameter('rotation_steps', 35)
+        self.declare_parameter('rotation_angle_cw_deg', 0.0)
+        self.declare_parameter('rotation_angle_ccw_deg', 0.0)
+        self.declare_parameter('path_builder_iterations', 10)
+        self.declare_parameter('enable_collision_check', False)
+        self.declare_parameter('collision_data_path', '')
         self.declare_parameter('suppress_motion_planning_messages', True)
         self.declare_parameter('log_current_base_plane', True)
         self.declare_parameter('base_plane_log_rate_hz', 1.0)
@@ -110,6 +118,30 @@ class OdomReaderNode(Node):
         )
         self.robot_buffer_size = (
             self.get_parameter('robot_buffer_size').get_parameter_value().integer_value
+        )
+        self.rotation_mode = (
+            self.get_parameter('rotation_mode').get_parameter_value().string_value
+        )
+        self.rotation_angle_deg = (
+            self.get_parameter('rotation_angle_deg').get_parameter_value().double_value
+        )
+        self.rotation_steps = (
+            self.get_parameter('rotation_steps').get_parameter_value().integer_value
+        )
+        self.rotation_angle_cw_deg = (
+            self.get_parameter('rotation_angle_cw_deg').get_parameter_value().double_value
+        )
+        self.rotation_angle_ccw_deg = (
+            self.get_parameter('rotation_angle_ccw_deg').get_parameter_value().double_value
+        )
+        self.path_builder_iterations = (
+            self.get_parameter('path_builder_iterations').get_parameter_value().integer_value
+        )
+        self.enable_collision_check = (
+            self.get_parameter('enable_collision_check').get_parameter_value().bool_value
+        )
+        self.collision_data_path = (
+            self.get_parameter('collision_data_path').get_parameter_value().string_value
         )
         self.suppress_motion_planning_messages = (
             self.get_parameter('suppress_motion_planning_messages')
@@ -214,6 +246,29 @@ class OdomReaderNode(Node):
         self.get_logger().info(
             f'Odom Reader Node started. odom={self.odom_topic} exec_index={self.exec_index_topic} replanned_target={self.replanned_target_topic}'
         )
+        self.get_logger().info(
+            'Planning options: '
+            f'rotation_mode={self.rotation_mode} '
+            f'rotation_angle_deg={self.rotation_angle_deg:.3f} '
+            f'rotation_steps={self.rotation_steps} '
+            f'rotation_cw_deg={self.rotation_angle_cw_deg:.3f} '
+            f'rotation_ccw_deg={self.rotation_angle_ccw_deg:.3f} '
+            f'path_builder_iterations={self.path_builder_iterations} '
+            f'enable_collision_check={self.enable_collision_check}'
+        )
+
+    def _planning_kwargs(self):
+        collision_data_path = self.collision_data_path.strip()
+        return {
+            'rotation_mode': self.rotation_mode,
+            'rotation_angle_deg': float(self.rotation_angle_deg),
+            'rotation_steps': int(self.rotation_steps),
+            'angle_cw_deg': float(self.rotation_angle_cw_deg),
+            'angle_ccw_deg': float(self.rotation_angle_ccw_deg),
+            'enable_collision_check': bool(self.enable_collision_check),
+            'collision_data_path': collision_data_path if collision_data_path else None,
+            'path_builder_iterations': max(1, int(self.path_builder_iterations)),
+        }
 
     def _open_metrics_csv(self) -> None:
         csv_dir_str = (
@@ -513,7 +568,7 @@ class OdomReaderNode(Node):
             base_planes=base_for_seed,
             current_pose=self.current_joint_pose,
             number_of_nodes_to_calculate=number_of_nodes,
-
+            **self._planning_kwargs(),
         )
 
         configs = result.get('configurations', [])
@@ -525,7 +580,9 @@ class OdomReaderNode(Node):
                 result = self._calculate_partial_trajectory(
                     list_of_targets=self.target_planes,
                     base_planes=None,
+                    current_pose=self.current_joint_pose,
                     number_of_nodes_to_calculate=number_of_nodes,
+                    **self._planning_kwargs(),
                 )
                 configs = result.get('configurations', [])
 
@@ -609,6 +666,7 @@ class OdomReaderNode(Node):
             base_planes=remaining_base_planes,
             current_pose=reference_pose,
             number_of_nodes_to_calculate=number_of_nodes,
+            **self._planning_kwargs(),
         )
         _compute_ms = (time.perf_counter() - _t_compute_start) * 1e3
         self._replan_total += 1
