@@ -1,0 +1,5 @@
+Per-file statistics (avg/median/min/max):
+source_file                                                 latency_avg_ms  latency_median_ms  latency_min_ms  latency_max_ms  compute_avg_ms  compute_median_ms  compute_min_ms  compute_max_ms  ik_total_avg  ik_total_median  ik_total_min  ik_total_max
+10_deg_either_side_no_collision_20260313_160446.csv         28.5038            28.1770         24.5330         48.7490         28.3845            28.0690         24.4260         48.6320       80.0000          80.0000            80            80
+ 2_deg_either_side_no_collision_20260313_155139.csv          2.9930             2.9130          1.0960          5.0430          2.8727             2.7970          1.0910          4.7820       15.9958          16.0000             8            16
+       no_rotation_no_collision_20260313_141504.csv          2.7301             2.6520          1.0680          4.9760          2.6084             2.5300          1.0630          4.8510       15.9958          16.0000             8            16
