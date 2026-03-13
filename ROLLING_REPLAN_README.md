@@ -32,7 +32,8 @@ ros2 run mobile_motion_planning odom_reader_node \
   -p odom_topic:=/robot/robotnik_base_control/odom \
   -p exec_index_topic:=ur_pose_streamer/exec_index \
   -p joint_state_topic:=/robot/joint_states \
-  -p move_base_cmd_topic:=/robot/move_base/cmd_vel \  -p replanned_target_topic:=ur_pose_streamer/replanned_target \
+  -p move_base_cmd_topic:=/robot/move_base/cmd_vel \  
+  -p replanned_target_topic:=ur_pose_streamer/replanned_target \
   -p target_planes_json:=/path/to/target_planes.json \
   -p base_planes_json:=/path/to/base_planes.json \
   -p lookahead_nodes:=2 \
@@ -43,7 +44,30 @@ ros2 run mobile_motion_planning odom_reader_node \
   -p joint_names:="[shoulder_pan_joint, shoulder_lift_joint, elbow_joint, wrist_1_joint, wrist_2_joint, wrist_3_joint]"
 
 
-ros2 run mobile_motion_planning odom_reader_node --ros-args -p target_planes_json:=/home/robot/robot_ws/src/print_while_driving_packages/mobile_motion_planning/data/example_data/260311_Segment_4/260311_150455_flange_frames.json -p base_planes_json:=/home/robot/robot_ws/src/print_while_driving_packages/mobile_motion_planning/data/example_data/260311_Segment_4/260311_150455_base_frames.json
+ros2 run mobile_motion_planning odom_reader_node --ros-args -p rotation_mode:=step_angle -p rotation_angle_cw_deg:=2.0 -p rotation_angle_ccw_deg:=2.0
+```
+
+### 2a. Rotation ON, Collision Checking OFF
+
+Use this when you want orientation search around each target plane but no PyBullet collision culling:
+
+```bash
+cd ~/robot_ws && source install/setup.bash
+ros2 run mobile_motion_planning odom_reader_node \
+  --ros-args \
+  -p target_planes_json:=/home/robot/robot_ws/src/print_while_driving_packages/mobile_motion_planning/data/example_data/260311_Segment_4/260311_150455_flange_frames.json \
+  -p base_planes_json:=/home/robot/robot_ws/src/print_while_driving_packages/mobile_motion_planning/data/example_data/260311_Segment_4/260311_150455_base_frames.json \
+  -p rotation_mode:=step_angle \
+  -p rotation_angle_deg:=5.0 \
+  -p rotation_angle_cw_deg:=45.0 \
+  -p rotation_angle_ccw_deg:=45.0 \
+  -p enable_collision_check:=false
+```
+
+For full-circle sampling instead of bounded angle sampling, use:
+
+```bash
+-p rotation_mode:=n_steps -p rotation_steps:=35
 ```
 
 ### Reader Behavior
@@ -55,6 +79,16 @@ The initial seed targets are now published with transient-local durability, so t
 `base_planes_json` is interpreted as an initial base frame reference. Only the first base plane is used, and then translated using odometry delta (no rotation applied).
 
 The base velocity command is published from `odom_reader_node` automatically at 100 Hz after the first executed robot index is received (`exec_index >= 0`).
+
+`rotation_mode` is a string parameter. In ROS 2 CLI, `False` may still be parsed as YAML boolean even when quoted.
+Use one of these:
+
+```bash
+ros2 run mobile_motion_planning odom_reader_node
+
+# or 
+ros2 run mobile_motion_planning odom_reader_node --ros-args -p rotation_mode:=none
+```
 
 ### 3. Connect UR Robot
 
@@ -92,6 +126,14 @@ UR Robot
 | `move_base_cmd_topic` | /robot/move_base/cmd_vel | Twist topic for mobile base motion |
 | `move_base_linear_x` | -0.001 | Linear x command sent after first executed point |
 | `move_base_rate_hz` | 100.0 | Base cmd_vel publish rate |
+| `rotation_mode` | `False` | Rotation search mode: `False`, `step_angle`, or `n_steps` |
+| `rotation_angle_deg` | 5.0 | Step size in degrees for `step_angle` mode |
+| `rotation_angle_cw_deg` | 0.0 | Clockwise bound for `step_angle` mode |
+| `rotation_angle_ccw_deg` | 0.0 | Counter-clockwise bound for `step_angle` mode |
+| `rotation_steps` | 35 | Number of full-circle samples when `rotation_mode:=n_steps` |
+| `enable_collision_check` | false | Enable slab_net_zero PyBullet collision culling |
+| `collision_data_path` | "" | Optional slab_net_zero data path override for URDF/meshes |
+| `path_builder_iterations` | 10 | Random start/end samples used by graph shortest-path search |
 
 ## CSV Metrics
 
