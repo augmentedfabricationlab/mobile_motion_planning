@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# pylint: disable=import-error
 """
 ROS 2 node that:
 - Subscribes to base odometry, executed trajectory index (`exec_index`), and arm joint states.
@@ -6,7 +7,7 @@ ROS 2 node that:
   using live odometry to compute the current base frame for replanning.
 - Seeds initial UR buffer targets.
 - Replans a short lookahead trajectory on execution progress updates.
-- Publishes the replanned buffer-tail joint target as `Float64MultiArray` so the ur_pose_streamer_live can use it.
+- Publishes the replanned joint target so the ur_pose_streamer_live can use it.
 """
 import csv
 import json
@@ -29,6 +30,7 @@ from sensor_msgs.msg import JointState
 from std_msgs.msg import Float64MultiArray, Int32
 
 from mobile_motion_planning.ik_offline.geometry import Plane
+from mobile_motion_planning.partial_trajectory import calculate_partial_trajectory
 
 
 def select_buffer_tail_pose(
@@ -38,6 +40,7 @@ def select_buffer_tail_pose(
     replanned_configurations,
     buffer_size,
 ):
+    """Return the buffer-tail target index and joint values for publication."""
     if buffer_size < 1:
         raise ValueError('buffer_size must be >= 1')
 
@@ -58,6 +61,11 @@ class OdomReaderNode(Node):
     def __init__(self):
         super().__init__('odom_reader_node')
 
+        default_data_root = (
+            '/home/robot/robot_ws/src/print_while_driving_packages/'
+            'mobile_motion_planning/data/example_data/260311_Segment_4'
+        )
+
         self.declare_parameter('odom_topic', '/robot/robotnik_base_control/odom')
         self.declare_parameter('exec_index_topic', 'ur_pose_streamer/exec_index')
         self.declare_parameter('joint_state_topic', '/robot/joint_states')
@@ -65,8 +73,14 @@ class OdomReaderNode(Node):
         self.declare_parameter('move_base_cmd_topic', '/robot/move_base/cmd_vel')
         self.declare_parameter('move_base_linear_x', -0.001)
         self.declare_parameter('move_base_rate_hz', 100.0)
-        self.declare_parameter('target_planes_json', '/home/robot/robot_ws/src/print_while_driving_packages/mobile_motion_planning/data/example_data/260311_Segment_4/260311_150455_flange_frames.json')
-        self.declare_parameter('base_planes_json', '/home/robot/robot_ws/src/print_while_driving_packages/mobile_motion_planning/data/example_data/260311_Segment_4/260311_150455_base_frames.json')
+        self.declare_parameter(
+            'target_planes_json',
+            f'{default_data_root}/260311_150455_flange_frames.json',
+        )
+        self.declare_parameter(
+            'base_planes_json',
+            f'{default_data_root}/260311_150455_base_frames.json',
+        )
         self.declare_parameter('lookahead_nodes', 2)
         self.declare_parameter('robot_buffer_size', 2)
         self.declare_parameter('rotation_mode', 'False')
@@ -83,7 +97,8 @@ class OdomReaderNode(Node):
         self.declare_parameter('record_metrics_csv', True)
         self.declare_parameter(
             'metrics_csv_dir',
-            '/home/robot/robot_ws/src/print_while_driving_packages/mobile_motion_planning/data/recordings',
+            '/home/robot/robot_ws/src/print_while_driving_packages/' \
+            'mobile_motion_planning/data/recordings',
         )
         self.declare_parameter(
             'joint_names',
@@ -169,7 +184,7 @@ class OdomReaderNode(Node):
         self.joint_names = list(
             self.get_parameter('joint_names').get_parameter_value().string_array_value
         )
-        
+
         # Initialize position variables
         self.current_x = 0.0
         self.current_y = 0.0
@@ -184,7 +199,9 @@ class OdomReaderNode(Node):
         self._initial_seed_done = False
         self._replan_path_injected = False
         self.target_planes = self._load_planes_from_json(self.target_planes_json)
-        self._initial_base_plane: Optional[Plane] = self._load_initial_base_plane_from_json(self.base_planes_json)
+        self._initial_base_plane: Optional[Plane] = self._load_initial_base_plane_from_json(
+            self.base_planes_json
+        )
         self._initial_odom_position: Optional[Tuple[float, float, float]] = None
         self._current_odom_position: Optional[Tuple[float, float, float]] = None
         self._base_motion_started = False
@@ -239,12 +256,15 @@ class OdomReaderNode(Node):
             1.0 / max(self.move_base_rate_hz, 1.0),
             self._publish_base_move_cmd,
         )
-        
+
         # Create timer for 10Hz processing (0.1 seconds = 100ms)
         self.timer = self.create_timer(0.1, self.process_data)
-        
+
         self.get_logger().info(
-            f'Odom Reader Node started. odom={self.odom_topic} exec_index={self.exec_index_topic} replanned_target={self.replanned_target_topic}'
+            'Odom Reader Node started. '
+            f'odom={self.odom_topic} '
+            f'exec_index={self.exec_index_topic} '
+            f'replanned_target={self.replanned_target_topic}'
         )
         self.get_logger().info(
             'Planning options: '
@@ -288,7 +308,8 @@ class OdomReaderNode(Node):
         self._metrics_csv_file.flush()
         self.get_logger().info(f'Metrics CSV opened: {csv_path}')
 
-    def _close_metrics_csv(self) -> None:
+    def close_metrics_csv(self) -> None:
+        """Flush and close the metrics CSV file if it is open."""
         if self._metrics_csv_file is not None:
             self._metrics_csv_file.flush()
             self._metrics_csv_file.close()
@@ -326,7 +347,6 @@ class OdomReaderNode(Node):
         self._metrics_csv_file.flush()
 
     def _calculate_partial_trajectory(self, **kwargs):
-        from mobile_motion_planning.partial_trajectory import calculate_partial_trajectory
 
         if not self.suppress_motion_planning_messages:
             return calculate_partial_trajectory(**kwargs)
@@ -431,7 +451,8 @@ class OdomReaderNode(Node):
             return None
         if len(planes) > 1:
             self.get_logger().warning(
-                f'base_planes_json contains {len(planes)} planes; using only the first as the initial base plane.'
+                f'base_planes_json contains {len(planes)} planes; '
+                'using only the first as the initial base plane.'
             )
         return planes[0]
 
@@ -518,7 +539,10 @@ class OdomReaderNode(Node):
         if new_exec_index >= 0 and not self._base_motion_started:
             self._base_motion_started = True
             self.get_logger().info(
-                f'First point reached (exec_index={new_exec_index}). Starting base cmd publish on {self.move_base_cmd_topic} at {self.move_base_rate_hz:.1f} Hz with linear.x={self.move_base_linear_x:.6f}'
+                f'First point reached (exec_index={new_exec_index}). '
+                f'Starting base cmd publish on {self.move_base_cmd_topic} '
+                f'at {self.move_base_rate_hz:.1f} Hz '
+                f'with linear.x={self.move_base_linear_x:.6f}'
             )
 
         self.exec_index = new_exec_index
@@ -546,23 +570,14 @@ class OdomReaderNode(Node):
     def _seed_initial_targets(self) -> None:
         """Publish the first robot_buffer_size targets so the streamer can seed the UR buffer."""
         self._initial_seed_done = True
-        try:
-            from mobile_motion_planning.partial_trajectory import calculate_partial_trajectory
-        except ModuleNotFoundError as exc:
-            self._ensure_replanning_path()
-            try:
-                from mobile_motion_planning.partial_trajectory import calculate_partial_trajectory
-            except ModuleNotFoundError:
-                if not self._replan_import_warned:
-                    self.get_logger().error(
-                        f'Replanning backend unavailable ({exc}). Cannot seed initial targets.'
-                    )
-                    self._replan_import_warned = True
-                return
 
         number_of_nodes = min(self.robot_buffer_size, len(self.target_planes))
         current_base_plane = self._compute_current_base_plane()
-        base_for_seed = [current_base_plane] * len(self.target_planes) if current_base_plane is not None else None
+        base_for_seed = (
+            [current_base_plane] * len(self.target_planes)
+            if current_base_plane is not None
+            else None
+        )
         result = self._calculate_partial_trajectory(
             list_of_targets=self.target_planes,
             base_planes=base_for_seed,
@@ -575,7 +590,8 @@ class OdomReaderNode(Node):
         if not configs:
             if base_for_seed is not None:
                 self.get_logger().warning(
-                    'Initial seed planning with base_planes returned no configurations; retrying in world frame.'
+                    'Initial seed planning with base_planes returned no configurations;' \
+                    ' retrying in world frame.'
                 )
                 result = self._calculate_partial_trajectory(
                     list_of_targets=self.target_planes,
@@ -591,7 +607,8 @@ class OdomReaderNode(Node):
                     len(s) for s in result.get('ik_solutions_per_node', [])
                 ]
                 self.get_logger().error(
-                    f'Initial seed planning returned no configurations. IK counts per node: {ik_counts}'
+                    f'Initial seed planning returned no configurations.' 
+                    f'IK counts per node: {ik_counts}'
                 )
                 return
 
@@ -623,11 +640,13 @@ class OdomReaderNode(Node):
             reference_pose = self.current_joint_pose
             if reference_pose is None:
                 self.get_logger().warning(
-                    f'Skipping replan: no indexed executed pose for exec index {self.exec_index} and no joint state fallback yet'
+                    'Skipping replan: no indexed executed pose for exec '
+                    f'index {self.exec_index} and no joint state fallback yet'
                 )
                 return
             self.get_logger().warning(
-                f'No cached executed pose for exec index {self.exec_index}; using current joint state fallback'
+                'No cached executed pose for '
+                f'exec index {self.exec_index}; using current joint state fallback'
             )
 
         replan_start_index = self.exec_index + 1
@@ -638,26 +657,14 @@ class OdomReaderNode(Node):
         remaining_targets = self.target_planes[replan_start_index:]
         current_base_plane = self._compute_current_base_plane()
         remaining_base_planes = (
-            [current_base_plane] * len(remaining_targets) if current_base_plane is not None else None
+            [current_base_plane] * len(remaining_targets)
+            if current_base_plane is not None
+            else None
         )
 
         number_of_nodes = min(self.lookahead_nodes, len(remaining_targets))
         if number_of_nodes <= 0:
             return
-
-        try:
-            from mobile_motion_planning.partial_trajectory import calculate_partial_trajectory
-        except ModuleNotFoundError as exc:
-            self._ensure_replanning_path()
-            try:
-                from mobile_motion_planning.partial_trajectory import calculate_partial_trajectory
-            except ModuleNotFoundError:
-                if not self._replan_import_warned:
-                    self.get_logger().error(
-                        f'Replanning backend unavailable ({exc}). Install missing dependency and retry.'
-                    )
-                    self._replan_import_warned = True
-                return
 
         _t0 = time.perf_counter()
         _t_compute_start = time.perf_counter()
@@ -723,35 +730,32 @@ class OdomReaderNode(Node):
         ]
         self.last_published_replanned_index = target_index
         self.get_logger().info(
-            f'Published replanned target index {target_index} based on exec index {self.exec_index} '
+            f'Published replanned index {target_index} based on exec index {self.exec_index} '
             f'(latency={_latency_ms:.1f}ms compute={_compute_ms:.1f}ms)'
         )
-    
+
     def process_data(self):
         """Process odometry data at 10Hz (called by timer)."""
         if not self.data_received:
-            self.get_logger().warn('No odometry data received yet', throttle_duration_sec=5.0)
+            self.get_logger().warn(
+                'No odometry data received yet',
+                throttle_duration_sec=5.0,
+            )
             return
         self._log_current_base_plane_if_needed()
-        
-        # Get current timestamp
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
-        
-        # Print the current position values with timestamp and UR exec index
-        # print(f"[{timestamp}] exec_idx={self.exec_index} Position: x={self.current_x:.6f}, y={self.current_y:.6f}, z={self.current_z:.6f}")
 
 
 def main(args=None):
     """Main entry point for the node."""
     rclpy.init(args=args)
     node = OdomReaderNode()
-    
+
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
         pass
     finally:
-        node._close_metrics_csv()
+        node.close_metrics_csv()
         node.destroy_node()
         rclpy.shutdown()
 

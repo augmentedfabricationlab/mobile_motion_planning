@@ -10,15 +10,17 @@ import math
 # # Add the src directory to the path for imports
 # module_path = Path(__file__).resolve().parent.parent.parent
 # sys.path.insert(0, str(module_path))
-
-from mobile_motion_planning.ik_offline.ik_offline import (
-    ik_no_tool_with_base_change,
-    find_matching_ik_solution,
-)
-from mobile_motion_planning.ik_offline.geometry import Plane
 from slab_net_zero.motion_planning.shortest_path_graph_based.graph_based_optimum import (
     PathBuilder,
+    )
+from slab_net_zero.collision_checking.pybullet.collision_checking_pybullet import (
+        CollisionCheck,
+    )
+from mobile_motion_planning.ik_offline.ik_offline import (
+    ik_no_tool_with_base_change,
 )
+from mobile_motion_planning.ik_offline.geometry import Plane
+
 
 
 def _rotate_vector_around_axis(vector, axis, angle_rad):
@@ -111,10 +113,6 @@ def _expand_plane_rotations(
 
 
 def _apply_slab_net_zero_collision_check(ik_solutions_list, collision_data_path=None):
-    from slab_net_zero.collision_checking.pybullet.collision_checking_pybullet import (
-        CollisionCheck,
-    )
-
     checker = CollisionCheck.from_solutions(ik_solutions_list)
     if collision_data_path:
         checker.data_path = str(collision_data_path)
@@ -123,7 +121,7 @@ def _apply_slab_net_zero_collision_check(ik_solutions_list, collision_data_path=
 
 
 def calculate_partial_trajectory(
-    current_pose,
+    _current_pose,
     list_of_targets,
     number_of_nodes_to_calculate=10,
     base_planes=None,
@@ -136,6 +134,7 @@ def calculate_partial_trajectory(
     collision_data_path=None,
     path_builder_iterations=10,
 ):
+    """Calculate a partial trajectory for a subset of nodes along a path."""
     num_nodes = min(number_of_nodes_to_calculate, len(list_of_targets))
 
     targets_subset = list_of_targets[:num_nodes]
@@ -144,8 +143,10 @@ def calculate_partial_trajectory(
         if not isinstance(base_planes, list):
             raise TypeError("base_planes must be a list or None")
         if len(base_planes) != len(list_of_targets):
+            len_base = len(base_planes)
+            len_targets = len(list_of_targets)
             raise ValueError(
-                f"base_planes length ({len(base_planes)}) must match list_of_targets length ({len(list_of_targets)})"
+                f"len(base_planes) ({len_base}) must match len(list_of_targets) ({len_targets})"
             )
         base_planes_subset = base_planes[:num_nodes]
     else:
@@ -199,7 +200,7 @@ def calculate_partial_trajectory(
             "rotation_candidates_per_node": rotation_candidates_per_node,
         }
 
-    ik_solutions_with_start = [[current_pose]] + ik_solutions_list
+    ik_solutions_with_start = [[_current_pose]] + ik_solutions_list
     # print(ik_solutions_with_start)
 
     # Use PathBuilder to find optimal path through the solutions
@@ -283,8 +284,6 @@ def calculate_partial_trajectory(
 
 if __name__ == "__main__":
     # Example usage
-    from mobile_motion_planning.ik_offline.geometry import Plane
-
     # Define current robot pose (joint angles in radians)
     current_pose = [0.0, -1.57, 1.57, 0.0, 1.57, 0.0]
 
@@ -299,7 +298,7 @@ if __name__ == "__main__":
     # Calculate trajectory for first 3 nodes
     result = calculate_partial_trajectory(
         number_of_nodes_to_calculate=3,
-        current_pose=current_pose,
+        _current_pose=current_pose,
         list_of_targets=target_planes,
     )
 
