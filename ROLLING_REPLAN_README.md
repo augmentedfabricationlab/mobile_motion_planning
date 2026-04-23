@@ -38,7 +38,6 @@ ros2 run mobile_motion_planning odom_reader_node \
   -p base_planes_json:=/path/to/base_planes.json \
   -p lookahead_nodes:=2 \
   -p robot_buffer_size:=2 \
-
   -p move_base_linear_x:=-0.001 \
   -p move_base_rate_hz:=100.0 \
   -p joint_names:="[shoulder_pan_joint, shoulder_lift_joint, elbow_joint, wrist_1_joint, wrist_2_joint, wrist_3_joint]"
