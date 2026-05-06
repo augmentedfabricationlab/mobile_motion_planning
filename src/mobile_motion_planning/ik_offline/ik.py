@@ -1,4 +1,6 @@
-"""Inverse kinematics solver for UR robots."""
+"""Inverse kinematics solver for UR robots.
+This is based on rustr's work, who referenced:
+https://github.com/ros-industrial/universal_robot/tree/hydro-devel/ur_kinematics"""
 
 from math import sin, cos, fabs, asin, acos, sqrt, atan2, pi
 from .geometry import Plane
