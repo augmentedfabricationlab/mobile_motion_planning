@@ -62,7 +62,7 @@ class OdomReaderNode(Node):
         super().__init__('odom_reader_node')
 
         default_data_root = (
-            '/home/robot/robot_ws/src/print_while_driving_packages/'
+            '/home/robot/robot_ws/src/print_while_driving_packages/' \
             'mobile_motion_planning/data/example_data/260311_Segment_4'
         )
 

@@ -103,6 +103,9 @@ Startup order
             -p initial_buffer:=2 \
             -p replanned_target_topic:=ur_pose_streamer/replanned_target
 
+        I usually run:
+        ros2 run ur_pose_streamer ur_pose_streamer_live --ros-args -p joint_targets_live:=true
+
      The streamer waits for UR TCP connection on ``0.0.0.0:50012``.
 
 2. Start odometry reader (Terminal B):
@@ -125,11 +128,16 @@ Startup order
             -p move_base_rate_hz:=100.0 \
             -p joint_names:="[shoulder_pan_joint, shoulder_lift_joint, elbow_joint, wrist_1_joint, wrist_2_joint, wrist_3_joint]"
 
+            I usually run:
+            ros2 run mobile_motion_planning odom_reader_node --ros-args -p rotation_mode:=step_angle -p rotation_angle_cw_deg:=10.0 -p rotation_angle_ccw_deg:=10.0
+
 3. Optional rotation search settings:
 
 ::
 
         ros2 run mobile_motion_planning odom_reader_node --ros-args \
+            -p target_planes_json:=/home/robot/robot_ws/src/print_while_driving_packages/mobile_motion_planning/data/example_data/260311_Segment_4/260311_150455_flange_frames.json \
+            -p base_planes_json:=/home/robot/robot_ws/src/print_while_driving_packages/mobile_motion_planning/data/example_data/260311_Segment_4/260311_150455_base_frames.json \
             -p rotation_mode:=step_angle \
             -p rotation_angle_cw_deg:=2.0 \
             -p rotation_angle_ccw_deg:=2.0
