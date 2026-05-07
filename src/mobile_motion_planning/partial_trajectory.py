@@ -121,7 +121,7 @@ def _apply_slab_net_zero_collision_check(ik_solutions_list, collision_data_path=
 
 
 def calculate_partial_trajectory(
-    _current_pose,
+    current_pose,
     list_of_targets,
     number_of_nodes_to_calculate=10,
     base_planes=None,
@@ -200,7 +200,7 @@ def calculate_partial_trajectory(
             "rotation_candidates_per_node": rotation_candidates_per_node,
         }
 
-    ik_solutions_with_start = [[_current_pose]] + ik_solutions_list
+    ik_solutions_with_start = [[current_pose]] + ik_solutions_list
     # print(ik_solutions_with_start)
 
     # Use PathBuilder to find optimal path through the solutions
@@ -298,7 +298,7 @@ if __name__ == "__main__":
     # Calculate trajectory for first 3 nodes
     result = calculate_partial_trajectory(
         number_of_nodes_to_calculate=3,
-        _current_pose=current_pose,
+        current_pose=current_pose,
         list_of_targets=target_planes,
     )
 

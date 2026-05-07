@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 # pylint: disable=import-error
-"""
-ROS 2 node that:
-- Subscribes to base odometry, executed trajectory index (`exec_index`), and arm joint states.
-- Loads target planes from JSON; takes a single initial base plane from JSON and transforms it
-  using live odometry to compute the current base frame for replanning.
-- Seeds initial UR buffer targets.
-- Replans a short lookahead trajectory on execution progress updates.
-- Publishes the replanned joint target so the ur_pose_streamer_live can use it.
+"""ROS 2 rolling replanning node for mobile-base printing with a UR arm.
+
+The node tracks live base odometry, UR execution progress, and arm joint states,
+seeds the initial pose buffer for the streamer, replans a short lookahead segment,
+and publishes the next buffered joint target. 
+!!! This also publishes base motion commands. !!!
 """
 import csv
 import json
@@ -55,11 +53,11 @@ def select_buffer_tail_pose(
     return tail_global_index, replanned_configurations[tail_offset]
 
 
-class OdomReaderNode(Node):
-    """Node that reads odometry data and processes it at 10Hz."""
+class RollingReplanNode(Node):
+    """Node that performs rolling replanning from odometry and execution feedback."""
 
     def __init__(self):
-        super().__init__('odom_reader_node')
+        super().__init__('rolling_replan_node')
 
         default_data_root = (
             '/home/robot/robot_ws/src/print_while_driving_packages/' \
@@ -261,7 +259,7 @@ class OdomReaderNode(Node):
         self.timer = self.create_timer(0.1, self.process_data)
 
         self.get_logger().info(
-            'Odom Reader Node started. '
+            'Rolling replan node started. '
             f'odom={self.odom_topic} '
             f'exec_index={self.exec_index_topic} '
             f'replanned_target={self.replanned_target_topic}'
@@ -748,7 +746,7 @@ class OdomReaderNode(Node):
 def main(args=None):
     """Main entry point for the node."""
     rclpy.init(args=args)
-    node = OdomReaderNode()
+    node = RollingReplanNode()
 
     try:
         rclpy.spin(node)

@@ -83,7 +83,7 @@ setup(
     extras_require={},
     entry_points={
         'console_scripts': [
-            'odom_reader_node = mobile_motion_planning.odom_reader_node:main',
+            'rolling_replan_node = mobile_motion_planning.rolling_replan_node:main',
         ],
     },
 )

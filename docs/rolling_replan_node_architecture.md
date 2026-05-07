@@ -1,4 +1,4 @@
-# OdomReaderNode Architecture
+# RollingReplanNode Architecture
 
 ## Complete System UML Diagram
 
@@ -208,7 +208,7 @@ graph LR
 ## Function Call Hierarchy
 
 ```
-OdomReaderNode.__init__()
+RollingReplanNode.__init__()
 ├── _open_metrics_csv()
 ├── _load_planes_from_json() → target_planes
 ├── _load_initial_base_plane_from_json()
@@ -313,6 +313,6 @@ All behavior controlled via ROS2 parameters:
 - **CSV Files**: 1 metrics recording file per run
 
 ### Processing
-- **12 main functions** in OdomReaderNode class
+- **12 main functions** in RollingReplanNode class
 - **2 external dependencies**: `calculate_partial_trajectory()`, `select_buffer_tail_pose()`
 - **2 timer loops**: 10Hz main loop + configurable base command rate
