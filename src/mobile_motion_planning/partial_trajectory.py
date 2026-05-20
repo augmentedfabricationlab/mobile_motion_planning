@@ -123,7 +123,7 @@ def _apply_slab_net_zero_collision_check(ik_solutions_list, collision_data_path=
 def calculate_partial_trajectory(
     _current_pose,
     list_of_targets,
-    number_of_nodes_to_calculate=10,
+    number_of_nodes_to_calculate=None,
     base_planes=None,
     rotation_mode='False',
     rotation_angle_deg=5,
