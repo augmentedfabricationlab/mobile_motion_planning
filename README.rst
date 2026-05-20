@@ -33,7 +33,7 @@ Main features
 Package entry point
 -------------------
 
-* ``odom_reader_node`` (ROS 2 executable)
+* ``rolling_replan_node`` (ROS 2 executable)
 
 Requirements
 ------------
@@ -85,7 +85,7 @@ and recomputes the next segment online.
 System overview:
 
 * ``ur_pose_streamer_live`` accepts replanned targets and streams to UR over TCP.
-* ``odom_reader_node`` listens to odometry + exec index and publishes the next
+* ``rolling_replan_node`` listens to odometry + exec index and publishes the next
     buffer-tail target.
 * ``partial_trajectory.py`` performs IK solving and path optimization.
 
@@ -103,6 +103,9 @@ Startup order
             -p initial_buffer:=2 \
             -p replanned_target_topic:=ur_pose_streamer/replanned_target
 
+        I usually run:
+        ros2 run ur_pose_streamer ur_pose_streamer_live --ros-args -p joint_targets_live:=true
+
      The streamer waits for UR TCP connection on ``0.0.0.0:50012``.
 
 2. Start odometry reader (Terminal B):
@@ -110,7 +113,7 @@ Startup order
 ::
 
         cd ~/robot_ws && source install/setup.bash
-        ros2 run mobile_motion_planning odom_reader_node \
+        ros2 run mobile_motion_planning rolling_replan_node \
             --ros-args \
             -p odom_topic:=/robot/robotnik_base_control/odom \
             -p exec_index_topic:=ur_pose_streamer/exec_index \
@@ -125,11 +128,16 @@ Startup order
             -p move_base_rate_hz:=100.0 \
             -p joint_names:="[shoulder_pan_joint, shoulder_lift_joint, elbow_joint, wrist_1_joint, wrist_2_joint, wrist_3_joint]"
 
+            I usually run:
+            ros2 run mobile_motion_planning rolling_replan_node --ros-args -p rotation_mode:=step_angle -p rotation_angle_cw_deg:=10.0 -p rotation_angle_ccw_deg:=10.0
+
 3. Optional rotation search settings:
 
 ::
 
-        ros2 run mobile_motion_planning odom_reader_node --ros-args \
+        ros2 run mobile_motion_planning rolling_replan_node --ros-args \
+            -p target_planes_json:=/home/robot/robot_ws/src/print_while_driving_packages/mobile_motion_planning/data/example_data/260311_Segment_4/260311_150455_flange_frames.json \
+            -p base_planes_json:=/home/robot/robot_ws/src/print_while_driving_packages/mobile_motion_planning/data/example_data/260311_Segment_4/260311_150455_base_frames.json \
             -p rotation_mode:=step_angle \
             -p rotation_angle_cw_deg:=2.0 \
             -p rotation_angle_ccw_deg:=2.0
@@ -144,7 +152,7 @@ Rotation ON, collision checking OFF example
 ::
 
         cd ~/robot_ws && source install/setup.bash
-        ros2 run mobile_motion_planning odom_reader_node \
+        ros2 run mobile_motion_planning rolling_replan_node \
             --ros-args \
             -p target_planes_json:=/home/robot/robot_ws/src/print_while_driving_packages/mobile_motion_planning/data/example_data/260311_Segment_4/260311_150455_flange_frames.json \
             -p base_planes_json:=/home/robot/robot_ws/src/print_while_driving_packages/mobile_motion_planning/data/example_data/260311_Segment_4/260311_150455_base_frames.json \
@@ -176,13 +184,13 @@ parsed as YAML boolean even when quoted. Use one of these:
 
 ::
 
-        ros2 run mobile_motion_planning odom_reader_node
+        ros2 run mobile_motion_planning rolling_replan_node
 
 or:
 
 ::
 
-        ros2 run mobile_motion_planning odom_reader_node --ros-args -p rotation_mode:=none
+        ros2 run mobile_motion_planning rolling_replan_node --ros-args -p rotation_mode:=none
 
 Data flow
 ^^^^^^^^^
@@ -265,7 +273,7 @@ Key parameters
 CSV metrics
 ^^^^^^^^^^^
 
-When ``record_metrics_csv:=true``, ``odom_reader_node`` writes a timestamped CSV
+When ``record_metrics_csv:=true``, ``rolling_replan_node`` writes a timestamped CSV
 named ``replan_metrics_YYYYMMDD_HHMMSS.csv`` into
 ``/home/robot/robot_ws/src/print_while_driving_packages/mobile_motion_planning/data/recordings``
 by default.
