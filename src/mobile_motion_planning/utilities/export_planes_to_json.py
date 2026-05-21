@@ -2,12 +2,18 @@
 
 Grasshopper inputs:
     planes      - list of Rhino/Grasshopper Plane objects (required)
-    filepath    - full path including filename, e.g. r"C:\\data\\planes.json" (required)
+    filepath    - folder path where the JSON will be written (required)
+    curvature   - numeric value used in filename (required)
+    base_offset_x - numeric value used in filename (required)
+    base_offset_y - numeric value used in filename (required)
+    base_length - numeric value used in filename (required)
+    type        - string value used in filename (required)
     run         - bool toggle to trigger export (required)
 """
 import json
 import os
 import math
+from datetime import datetime
 
 
 def _normalize(v):
@@ -47,7 +53,43 @@ def _as_plane_components(item):
     )
 
 
-def planes_to_json(planes, filepath):
+def _format_token(value):
+    """Format filename token values into compact, filesystem-safe strings."""
+    numeric_value = None
+    try:
+        if isinstance(value, bool):
+            raise ValueError
+        numeric_value = float(value)
+    except (TypeError, ValueError):
+        numeric_value = None
+
+    if numeric_value is not None:
+        rounded = round(numeric_value, 2)
+        if abs(rounded) >= 10:
+            raise ValueError(
+                "Numeric filename fields must be in range [-9.99, 9.99] to keep fixed width"
+            )
+
+        sign = "m" if rounded < 0 else "p"
+        text = "{}{:0.2f}".format(sign, abs(rounded))
+        return text.replace(".", "_")
+
+    # Non-numeric tokens: keep '-' and make spaces/decimal points filesystem-friendly.
+    text = str(value).strip()
+    return text.replace(".", "_").replace(" ", "-")
+
+
+def _build_filename(curvature, base_offset_x, base_offset_y, base_length, type_name):
+    date_part = datetime.now().strftime("%y%m%d")
+    c = _format_token(curvature)
+    y = _format_token(base_offset_y)
+    x = _format_token(base_offset_x)
+    l = _format_token(base_length)
+    t = _format_token(type_name).upper()
+    return "{}-C{}-Y{}-X{}-L-base{}-{}.json".format(date_part, c, y, x, l, t)
+
+
+def planes_to_json(planes, filepath, curvature, base_offset_x, base_offset_y, base_length, type_name):
     """Convert a list of Grasshopper planes to mobile_motion_planning JSON format.
 
     Parameters
@@ -55,7 +97,17 @@ def planes_to_json(planes, filepath):
     planes : list of Rhino.Geometry.Plane
         Planes from Grasshopper.
     filepath : str
-        Full output path, e.g. r"C:\\data\\segment_planes.json".
+        Output folder path, e.g. r"C:\\data".
+    curvature : int | float | str
+        Curvature value used in the output filename.
+    base_offset_x : int | float | str
+        Base offset X value used in the output filename.
+    base_offset_y : int | float | str
+        Base offset Y value used in the output filename.
+    base_length : int | float | str
+        Base length value used in the output filename.
+    type_name : str
+        Type label used in the output filename.
 
     Returns
     -------
@@ -76,14 +128,36 @@ def planes_to_json(planes, filepath):
             "z_axis": z_axis,
         })
 
-    os.makedirs(os.path.dirname(os.path.abspath(filepath)), exist_ok=True)
+    output_dir = os.path.abspath(filepath)
+    os.makedirs(output_dir, exist_ok=True)
 
-    with open(filepath, "w", encoding="utf-8") as f:
+    filename = _build_filename(curvature, base_offset_x, base_offset_y, base_length, type_name)
+    output_path = os.path.join(output_dir, filename)
+
+    with open(output_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
 
-    return filepath
+    return output_path
 
 
 
-out = planes_to_json(planes, filepath)
-print("Exported {} planes to: {}".format(len(planes), out))
+_planes = globals().get("planes")
+_filepath = globals().get("filepath")
+_curvature = globals().get("curvature")
+_base_offset_x = globals().get("base_offset_x")
+_base_offset_y = globals().get("base_offset_y")
+_base_length = globals().get("base_length")
+_type_name = globals().get("type_name", globals().get("type"))
+_run = bool(globals().get("run", True))
+
+if _run and _planes is not None and _filepath:
+    out = planes_to_json(
+        _planes,
+        _filepath,
+        _curvature,
+        _base_offset_x,
+        _base_offset_y,
+        _base_length,
+        _type_name,
+    )
+    print("Exported {} planes to: {}".format(len(_planes), out))
