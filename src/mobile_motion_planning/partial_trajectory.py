@@ -203,6 +203,29 @@ def calculate_partial_trajectory(
         except Exception as e:
             print(f'Collision culling failed: {e}')
 
+    solution_counts = [len(solutions) for solutions in ik_solutions_list]
+    reachable_points = sum(1 for count in solution_counts if count > 0)
+    total_solutions = sum(solution_counts)
+    print(f"Reachable points: {reachable_points}/{num_nodes}")
+    print(f"Total IK solutions across all points: {total_solutions}")
+
+    empty_point_indices = [
+        idx for idx, count in enumerate(solution_counts, start=1) if count == 0
+    ]
+    if empty_point_indices:
+        print(
+            "Skipping graph construction: no IK solutions for points "
+            f"{empty_point_indices}"
+        )
+        return {
+            "configurations": [],
+            "path_length": float("inf"),
+            "num_nodes_computed": num_nodes,
+            "ik_solutions_per_node": ik_solutions_list,
+            "rotation_candidates_per_node": rotation_candidates_per_node,
+            "unreachable_points": empty_point_indices,
+        }
+
     # Check if we have any valid solutions
     if all(len(sols) == 0 for sols in ik_solutions_list):
         return {
