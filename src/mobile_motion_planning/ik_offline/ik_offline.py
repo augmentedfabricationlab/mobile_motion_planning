@@ -102,9 +102,13 @@ def ik_with_tool(target: Plane):
     """Compute flange pose and return inverse kinematics solutions without robot connection."""
 
     # tcp_in_world = Plane((0.00302, -0.29571, 0.40445), (0.0366, 0, 0), (0, 0.0051, 0.0141)) # tool 7 abele split 90deg adapter straight inlet
+    # tcp_in_world = Plane(
+    #     (0.000, -0.29786, 0.361), (0.0151, 0, 0), (0, -0.014, 0.0056)
+    # )  # tool 8 abele split 90deg adapter straight inlet
     tcp_in_world = Plane(
-        (0.000, -0.29786, 0.361), (0.0151, 0, 0), (0, -0.014, 0.0056)
+        (-1.88102e-09,-0.404208,0.133956), (-1.46958e-18,-0.404208,0.139956), (1, 0, 0)
     )  # tool 8 abele split 90deg adapter straight inlet
+
 
     t = from_plane_to_plane(tcp_in_world, target)
     target_flange = apply_T_to_plane(t)
