@@ -157,7 +157,10 @@ def calculate_partial_trajectory(
     # Compute IK solutions for each target
     ik_solutions_list = []
     rotation_candidates_per_node = []
-    for target_plane, base_plane in zip(targets_subset, base_planes_subset):
+    for point_index, (target_plane, base_plane) in enumerate(
+        zip(targets_subset, base_planes_subset),
+        start=1,
+    ):
         rotated_target_planes = _expand_plane_rotations(
             target_plane,
             rotation_mode=rotation_mode,
@@ -181,12 +184,22 @@ def calculate_partial_trajectory(
         else:
             ik_solutions_list.append(ik_solutions)
 
+        print(
+            f"Point {point_index}/{num_nodes}: found "
+            f"{len(ik_solutions_list[-1])} IK solutions"
+        )
+
     if enable_collision_check:
         try:
             ik_solutions_list = _apply_slab_net_zero_collision_check(
                 ik_solutions_list,
                 collision_data_path=collision_data_path,
             )
+            for point_index, ik_solutions in enumerate(ik_solutions_list, start=1):
+                print(
+                    f"Point {point_index}/{num_nodes}: "
+                    f"{len(ik_solutions)} IK solutions after collision culling"
+                )
         except Exception as e:
             print(f'Collision culling failed: {e}')
 
