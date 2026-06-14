@@ -106,7 +106,7 @@ def ik_with_tool(target: Plane):
     #     (0.000, -0.29786, 0.361), (0.0151, 0, 0), (0, -0.014, 0.0056)
     # )  # tool 8 abele split 90deg adapter straight inlet
     tcp_in_world = Plane(
-        (-1.88102e-09,-0.404208,0.133956), (-1.46958e-18,-0.404208,0.139956), (1, 0, 0)
+        (-1.88102e-09,-0.404208,0.133956), (1,0,0), (0, 0, 1)
     )  # tool 8 abele split 90deg adapter straight inlet
 
 

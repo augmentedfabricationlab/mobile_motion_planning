@@ -130,6 +130,7 @@ def _save_ik_payload_if_requested(
     empty_point_indices,
 ):
     if not ik_solutions_output_path:
+        print("No ik_solutions_output_path provided, skipping saving IK solutions payload.")
         return
 
     payload = {
