@@ -74,6 +74,10 @@ Optional: local editable install for pure Python workflows:
 
         pip install -e .
 
+    or
+
+        pip install "git+https://github.com/augmentedfabricationlab/mobile_motion_planning.git@master"
+
 
 Usage: Rolling Replanning Pipeline
 ----------------------------------
