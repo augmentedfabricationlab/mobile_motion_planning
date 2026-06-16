@@ -78,6 +78,16 @@ Optional: local editable install for pure Python workflows:
 Usage: Rolling Replanning Pipeline
 ----------------------------------
 
+    I usually run:
+        # Start UR Pose Streamer (Terminal A):
+        ros2 run ur_pose_streamer ur_pose_streamer_live_all_moves --ros-args -p joint_targets_live:=true
+
+        # Start rolling replanning node (Terminal B):
+        ros2 run mobile_motion_planning rolling_replan_node --ros-args -p rotation_mode:=step_angle -p rotation_angle_cw_deg:=10.0 -p rotation_angle_ccw_deg:=10.0
+
+        # move base:
+        ros2 topic pub /robot/move_base/cmd_vel geometry_msgs/Twist "{linear: {x: -0.001, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}" -r 100
+
 This pipeline enables live trajectory replanning with a 2-pose robot buffer.
 The system streams poses to the UR robot, listens for executed-index feedback,
 and recomputes the next segment online.
@@ -103,8 +113,6 @@ Startup order
             -p initial_buffer:=2 \
             -p replanned_target_topic:=ur_pose_streamer/replanned_target
 
-        I usually run:
-        ros2 run ur_pose_streamer ur_pose_streamer_live --ros-args -p joint_targets_live:=true
 
      The streamer waits for UR TCP connection on ``0.0.0.0:50012``.
 
@@ -127,9 +135,6 @@ Startup order
             -p move_base_linear_x:=-0.001 \
             -p move_base_rate_hz:=100.0 \
             -p joint_names:="[shoulder_pan_joint, shoulder_lift_joint, elbow_joint, wrist_1_joint, wrist_2_joint, wrist_3_joint]"
-
-            I usually run:
-            ros2 run mobile_motion_planning rolling_replan_node --ros-args -p rotation_mode:=step_angle -p rotation_angle_cw_deg:=10.0 -p rotation_angle_ccw_deg:=10.0
 
 3. Optional rotation search settings:
 
